@@ -5,11 +5,57 @@ using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
 using System.Collections.ObjectModel;
 using System.Configuration;
-using System.ComponentModel;
+using System.Collections.Generic;
 
 
 namespace kf2
 {
+    //  logic for selecting specific option
+    public class Menu
+    {
+        public Menu(IEnumerable<string> items)
+        {
+            Items = items.ToArray();
+        }
+
+
+        public IReadOnlyList<string> Items { get; }
+
+        public int SelectedIndex { get; private set; } = -1; // nothing selected
+
+        public string SelectedOption => SelectedIndex != -1 ? Items[SelectedIndex] : null;
+
+
+        public void MoveUp() => SelectedIndex = Math.Max(SelectedIndex - 1, 0);
+
+        public void MoveDown() => SelectedIndex = Math.Min(SelectedIndex + 1, Items.Count - 1);
+    }
+
+
+    // logic for drawing menu list
+    public class ConsoleMenuPainter
+    {
+        readonly Menu menu;
+
+        public ConsoleMenuPainter(Menu menu)
+        {
+            this.menu = menu;
+        }
+
+        public void Paint(int x, int y)
+        {
+            for (int i = 0; i < menu.Items.Count; i++)
+            {
+                Console.SetCursorPosition(x, y + i);
+
+                var color = menu.SelectedIndex == i ? ConsoleColor.Yellow : ConsoleColor.Gray;
+
+                Console.ForegroundColor = color;
+                Console.WriteLine(menu.Items[i]);
+            }
+        }
+    }
+
     class Program
     {
         static void Main(string[] args)
@@ -54,43 +100,48 @@ namespace kf2
             driver.FindElement(By.Name("password")).SendKeys(password);
             driver.FindElement(By.ClassName("submit-button")).Click();
 
-
-            //get account data
-            chars = driver.FindElements(By.XPath("//div[@class = 'charName']"));
-            
-            Console.WriteLine("Characters avaiable:");
-
-            for(int N = 0;N <= chars.Count-3; N++ ) // -3 > new char; creat char; count from 0
-            {
-                Console.WriteLine(N + ". " + chars[N].Text);        
-            }
-
             //save credentials
             if (saveChck.Equals(true))
                 Data.Set("Key0", login);
                 Data.Set("Key1", password);
 
-            //chose char
-            Console.WriteLine("Choose character: 1,2,3...");
-            var Key = Console.ReadKey();
-            int charNum = 0;
-            bool nameValidation = false;
+            //get account data
+            chars = driver.FindElements(By.XPath("//div[@class = 'charName']"));
+            Console.Clear();
+            Console.WriteLine("Characters avaiable:");
 
-            while (nameValidation == false)
+            
+            List<string> charlist = new List<string>();
+            for (int N = 0;N <= chars.Count-3; N++ ) // -3 > new char; creat char; count from 0
+            {
+               charlist.Add (N + 1 + ". " + chars[N].Text);       
+            }
 
-                if (char.IsDigit(Key.KeyChar))
-                    {
-                        charNum = int.Parse(Key.KeyChar.ToString());
-                        nameValidation = true;
-                    }
+            //stwórz menu wyboru
+            var menu = new Menu(charlist);
+            var menuPainter = new ConsoleMenuPainter(menu);
+            bool done = false;
 
-                else
-                    {
-                        Console.WriteLine("\nUser didn't insert a Number");
-                        nameValidation = false;
-                    }
+            do
+            {
+                menuPainter.Paint(8, 5);
 
-            CurrentChar = chars[charNum].Text;
+                var keyInfo = Console.ReadKey();
+
+                switch (keyInfo.Key)
+                {
+                    case ConsoleKey.UpArrow: menu.MoveUp(); break;
+                    case ConsoleKey.DownArrow: menu.MoveDown(); break;
+                    case ConsoleKey.Enter: done = true; break;
+                }
+            }
+            while (!done);
+
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.WriteLine("Selected option: " + (menu.SelectedOption ?? "(nothing)"));
+
+            CurrentChar = menu.SelectedOption;
+
             string[] tempCharID = CurrentChar.Split('[');
             string CharID = tempCharID[1].Remove(tempCharID[1].Length - 1, 1);
 
@@ -112,9 +163,15 @@ namespace kf2
 
                 // select lvl
                 var comboBox = driver.FindElement(By.Name("level"));
-               // new SelectElement(comboBox).SelectByText("89");
-                new SelectElement(comboBox).SelectByIndex(0);
-
+                try
+                {
+                    new SelectElement(comboBox).SelectByText("89"); //best lvl to use
+                }
+                catch 
+                {
+                    new SelectElement(comboBox).SelectByIndex(0); //if not avaiable go for highest one
+                }
+          
                 {
                     //zacznij walke
                     driver.FindElement(By.XPath("//input[contains(@value,'Zbadaj')]")).Click();
