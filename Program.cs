@@ -1,12 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
-using SeleniumExtras.WaitHelpers;
+using System.Collections.ObjectModel;
+using System.Configuration;
+using System.ComponentModel;
+
 
 namespace kf2
 {
@@ -14,21 +14,99 @@ namespace kf2
     {
         static void Main(string[] args)
         {
+            var Data = ConfigurationManager.AppSettings;
 
+            string login = Data.Get("Key0");
+            string password = Data.Get("Key1");
+            int LvlGoal = int.Parse(Data.Get("Key3"));
+            string CurrentChar = Data.Get("Key2");
+            ReadOnlyCollection<IWebElement> chars;
+
+            Console.WriteLine("Type your login(e-mail):");
+            Console.WriteLine(login + "? Press Enter or type new.");
+            login = Console.ReadLine();
+            if (login.Equals("")) login = Data.Get("Key0");
+
+            //string NewLogin = Console.ReadLine(login);
+
+            Console.WriteLine("Your password:");
+            password = Console.ReadLine();
+
+            Console.WriteLine("Do you want to save credentials? Y/N  Press Enter to skip");
+            
+            string CredentChck = Console.ReadLine();
+
+            bool saveChck = false;
+
+            if (CredentChck.Equals("Y"))
+                saveChck = true;
+
+            else if (CredentChck.Equals("yes"))
+                saveChck = true;
+
+            else
+                saveChck = false;
+            
             IWebDriver driver = new ChromeDriver();
             // logowanie
             driver.Navigate().GoToUrl("https://www.kf2.pl");
-            driver.FindElement(By.Name("email")).SendKeys("las111@wp.pl");
-            driver.FindElement(By.Name("password")).SendKeys("las12342");
+            driver.FindElement(By.Name("email")).SendKeys(login);
+            driver.FindElement(By.Name("password")).SendKeys(password);
             driver.FindElement(By.ClassName("submit-button")).Click();
 
-            driver.FindElement(By.XPath("//div[contains(@onclick,'821')]")).Click();
+
+            //get account data
+            chars = driver.FindElements(By.XPath("//div[@class = 'charName']"));
+            
+            Console.WriteLine("Characters avaiable:");
+
+            for(int N = 0;N <= chars.Count-3; N++ ) // -3 > new char; creat char; count from 0
+            {
+                Console.WriteLine(N + ". " + chars[N].Text);        
+            }
+
+            //save credentials
+            if (saveChck.Equals(true))
+                Data.Set("Key0", login);
+                Data.Set("Key1", password);
+
+            //chose char
+            Console.WriteLine("Choose character: 1,2,3...");
+            var Key = Console.ReadKey();
+            int charNum = 0;
+            bool nameValidation = false;
+
+            while (nameValidation == false)
+
+                if (char.IsDigit(Key.KeyChar))
+                    {
+                        charNum = int.Parse(Key.KeyChar.ToString());
+                        nameValidation = true;
+                    }
+
+                else
+                    {
+                        Console.WriteLine("\nUser didn't insert a Number");
+                        nameValidation = false;
+                    }
+
+            CurrentChar = chars[charNum].Text;
+            string[] tempCharID = CurrentChar.Split('[');
+            string CharID = tempCharID[1].Remove(tempCharID[1].Length - 1, 1);
+
+            driver.FindElement(By.XPath("//div[contains(@onclick,'"+ CharID +"')]")).Click();
+            //driver.FindElement(By.XPath("//div[contains(text()'Roan')]")).Click(); not working ;c
+            //driver.FindElement(By.XPath("//div[text()'" + CurrentChar + "']")).Click();
+            Data.Set("Key2", CurrentChar); //save last used char
+            //  driver.FindElement(By.XPath("//div[contains(@onclick,'821')]")).Click();
 
             //expienie
             string level = driver.FindElement(By.Id("ajax_level")).Text;
             int lvl = int.Parse(level);
 
-            while (lvl < 100)
+            Console.WriteLine("Default level to be achived is 100. Go to Settings if you need to adjust.");
+
+            while (lvl < LvlGoal)
             {
                 driver.Navigate().GoToUrl("https://www.kf2.pl/podziemia");
 
@@ -78,10 +156,12 @@ namespace kf2
                            
                         }
 
+                        //select hit target
                         IWebElement ele = driver.FindElement(By.XPath("//div[contains(@id,'hpBody')]"));
                         IJavaScriptExecutor executor = (IJavaScriptExecutor)driver;
                         executor.ExecuteScript("arguments[0].click();", ele);
 
+                        //count avaiable enemies again
                         pics = driver.FindElements(By.XPath("//div[@id = 'fight_rightside']//div[@class = 'fighter_actions']/img[2]")).Count;
                     }
 
