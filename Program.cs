@@ -18,8 +18,8 @@ namespace kf2
             IWebDriver driver = new ChromeDriver();
             // logowanie
             driver.Navigate().GoToUrl("https://www.kf2.pl");
-            driver.FindElement(By.Name("email")).SendKeys("las111@wp.pl");
-            driver.FindElement(By.Name("password")).SendKeys("las12342");
+            driver.FindElement(By.Name("email")).SendKeys("&&&&&&&&");
+            driver.FindElement(By.Name("password")).SendKeys("&&&&&");
             driver.FindElement(By.ClassName("submit-button")).Click();
 
             driver.FindElement(By.XPath("//div[contains(@onclick,'821')]")).Click();
